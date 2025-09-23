@@ -49,13 +49,13 @@ if (-not $IncludeOUs -or $IncludeOUs.Count -eq 0) {
     }
     $IncludeOUs = $ouInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
 }
-Write-Log "DomainSuffix: $DomainSuffix"
-Write-Log "IncludeOUs: $($IncludeOUs -join ', ')"
+Write-Log ("DomainSuffix: {0}" -f $DomainSuffix)
+Write-Log ("IncludeOUs: {0}" -f ($IncludeOUs -join ', '))
 
 # --- Step 0: Check AD UPN Suffixes ---
 
 $existingSuffixes = (Get-ADForest).UPNSuffixes
-Write-Log "Current AD UPN Suffixes: $($existingSuffixes -join ', ')"
+Write-Log ("Current AD UPN Suffixes: {0}" -f ($existingSuffixes -join ', '))
 if ($existingSuffixes -notcontains $DomainSuffix) {
     $msg = "WARNING: The domain suffix '$DomainSuffix' is not configured as a UPN suffix in Active Directory."
     Write-Host $msg -ForegroundColor Yellow
@@ -112,14 +112,14 @@ try {
 # --- Step 3: Pull AD + Entra ID Users ---
 
 Write-Host "Fetching AD users from specified OUs..." -ForegroundColor Cyan
-Write-Log "Fetching AD users from OUs: $($IncludeOUs -join ', ')"
+Write-Log ("Fetching AD users from OUs: {0}" -f ($IncludeOUs -join ', '))
 $ADUsers = @()
 foreach ($ou in $IncludeOUs) {
     try {
         $ADUsers += Get-ADUser -SearchBase $ou -Filter * -Properties mail, UserPrincipalName, SamAccountName
     Write-Log ("Fetched users from {0}: {1} total." -f $ou, $ADUsers.Count)
     } catch {
-        Write-Error "Failed to fetch AD users from $ou: $_"
+        Write-Error ("Failed to fetch AD users from {0}: {1}" -f $ou, $_)
     Write-Log ("ERROR: Failed to fetch AD users from {0}: {1}" -f $ou, $_)
     }
 }
@@ -130,7 +130,7 @@ $FilteredADUsers = $ADUsers | Where-Object {
     $sam = $_.SamAccountName.ToLower()
     ($ExcludeSamPatterns | Where-Object { $sam -like "*$_*" }).Count -eq 0
 }
-Write-Log "Filtered AD users: $($FilteredADUsers.Count) remaining after exclusions."
+Write-Log ("Filtered AD users: {0} remaining after exclusions." -f $FilteredADUsers.Count)
 if ($FilteredADUsers.Count -eq 0) {
     Write-Host "No AD users found after filtering. Check your OU and exclusion settings." -ForegroundColor Yellow
     Write-Log "WARNING: No AD users found after filtering. Exiting."
@@ -143,7 +143,7 @@ Write-Host "Fetching Entra ID users..." -ForegroundColor Cyan
 Write-Log "Fetching Entra ID users..."
 try {
     $EntraUsers = Get-MgUser -All -Property UserPrincipalName, Mail
-    Write-Log "Fetched $($EntraUsers.Count) Entra ID users."
+    Write-Log ("Fetched {0} Entra ID users." -f $EntraUsers.Count)
 } catch {
     Write-Error "Failed to fetch Entra ID users: $_"
     Write-Log "ERROR: Failed to fetch Entra ID users: $_"
@@ -176,7 +176,7 @@ $Results = foreach ($ad in $FilteredADUsers) {
 
 
 $Results | Format-Table -AutoSize
-Write-Log "Comparison results: $($Results.Count) users processed."
+Write-Log ("Comparison results: {0} users processed." -f $Results.Count)
 
 
 # --- Step 5: Generate/Execute Fix ---
@@ -190,7 +190,7 @@ if ($Mismatches.Count -eq 0) {
 }
 
 Write-Host "`nFound $($Mismatches.Count) mismatches needing updates." -ForegroundColor Yellow
-Write-Log "Found $($Mismatches.Count) mismatches needing updates."
+Write-Log ("Found {0} mismatches needing updates." -f $Mismatches.Count)
 
 foreach ($m in $Mismatches) {
     $Sam = $m.ADUser
@@ -198,22 +198,22 @@ foreach ($m in $Mismatches) {
 
     if ($WhatIf) {
         $msg = "WhatIf: Would run => Set-ADUser $Sam -UserPrincipalName $TargetUPN"
-        Write-Host $msg -ForegroundColor Cyan
-        Write-Log $msg
+    Write-Host $msg -ForegroundColor Cyan
+    Write-Log $msg
     }
     else {
         if (Confirm-Step "Update $Sam UPN from '$($m.ADUPN)' to '$TargetUPN'?") {
             try {
                 Set-ADUser $Sam -UserPrincipalName $TargetUPN
-                Write-Host "Updated $Sam to $TargetUPN" -ForegroundColor Green
-                Write-Log "Updated $Sam to $TargetUPN"
+                Write-Host ("Updated {0} to {1}" -f $Sam, $TargetUPN) -ForegroundColor Green
+                Write-Log ("Updated {0} to {1}" -f $Sam, $TargetUPN)
             }
             catch {
-                Write-Error "Failed to update $Sam : $_"
-                Write-Log "ERROR: Failed to update $Sam : $_"
+                Write-Error ("Failed to update {0} : {1}" -f $Sam, $_)
+                Write-Log ("ERROR: Failed to update {0} : {1}" -f $Sam, $_)
             }
         } else {
-            Write-Log "Skipped update for $Sam."
+            Write-Log ("Skipped update for {0}." -f $Sam)
         }
     }
 }
