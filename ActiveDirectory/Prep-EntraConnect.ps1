@@ -117,10 +117,10 @@ $ADUsers = @()
 foreach ($ou in $IncludeOUs) {
     try {
         $ADUsers += Get-ADUser -SearchBase $ou -Filter * -Properties mail, UserPrincipalName, SamAccountName
-        Write-Log "Fetched users from $ou: $($ADUsers.Count) total."
+    Write-Log ("Fetched users from {0}: {1} total." -f $ou, $ADUsers.Count)
     } catch {
         Write-Error "Failed to fetch AD users from $ou: $_"
-        Write-Log "ERROR: Failed to fetch AD users from $ou: $_"
+    Write-Log ("ERROR: Failed to fetch AD users from {0}: {1}" -f $ou, $_)
     }
 }
 
